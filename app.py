@@ -1,88 +1,112 @@
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, session, redirect, url_for
 import random
-from datetime import datetime
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
-fun_facts = [
-    "Python was named after Monty Python 🐍",
-    "Flask is called a microframework, but it's powerful!",
-    "VS Code is one of the most popular code editors 🚀",
-    "The first computer bug was an actual moth 🦋",
-    "You can build APIs, websites, and more with Flask!"
-]
+def new_game():
+    session['player_hp'] = 100
+    session['enemy_hp'] = random.randint(50, 100)
+    session['message'] = "A wild monster appears! 👹"
 
 @app.route('/')
 def home():
-    fact = random.choice(fun_facts)
-    current_time = datetime.now().strftime("%A, %B %d, %Y %I:%M %p")
+    if 'player_hp' not in session:
+        new_game()
 
     html = """
     <!DOCTYPE html>
     <html>
     <head>
-        <title>My Pretty Flask App</title>
+        <title>Mini Flask RPG</title>
         <style>
             body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background: linear-gradient(135deg, #667eea, #764ba2);
+                font-family: Arial, sans-serif;
+                background: #1e1e2f;
                 color: white;
                 text-align: center;
-                padding: 50px;
+                padding: 40px;
             }
             .card {
-                background: rgba(255, 255, 255, 0.15);
-                padding: 40px;
+                background: #2c2c3c;
+                padding: 30px;
                 border-radius: 15px;
-                backdrop-filter: blur(10px);
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-                max-width: 600px;
+                max-width: 500px;
                 margin: auto;
-            }
-            h1 {
-                font-size: 2.5em;
-                margin-bottom: 10px;
-            }
-            .time {
-                font-size: 1.1em;
-                margin-bottom: 20px;
-                opacity: 0.9;
-            }
-            .fact {
-                margin-top: 20px;
-                font-size: 1.2em;
-                font-style: italic;
+                box-shadow: 0 0 20px rgba(0,0,0,0.5);
             }
             button {
-                margin-top: 25px;
                 padding: 10px 20px;
-                font-size: 1em;
+                margin: 10px;
+                font-size: 16px;
                 border: none;
                 border-radius: 8px;
-                background-color: #ffffff;
-                color: #764ba2;
                 cursor: pointer;
-                transition: 0.3s;
             }
-            button:hover {
-                background-color: #f1f1f1;
-                transform: scale(1.05);
-            }
+            .attack { background-color: crimson; color: white; }
+            .heal { background-color: seagreen; color: white; }
+            .restart { background-color: gray; color: white; }
+            h1 { margin-bottom: 10px; }
         </style>
     </head>
     <body>
         <div class="card">
-            <h1>✨ Welcome to My Flask App ✨</h1>
-            <div class="time">Current time: {{ time }}</div>
-            <p>This app is running beautifully in VS Code 🎉</p>
-            <div class="fact">Fun Fact: {{ fact }}</div>
-            <button onclick="window.location.reload();">Show Another Fun Fact</button>
+            <h1>⚔️ Mini RPG Battle ⚔️</h1>
+            <p><strong>Your HP:</strong> {{ player_hp }}</p>
+            <p><strong>Enemy HP:</strong> {{ enemy_hp }}</p>
+            <p>{{ message }}</p>
+
+            {% if player_hp > 0 and enemy_hp > 0 %}
+                <a href="/attack"><button class="attack">Attack 🗡️</button></a>
+                <a href="/heal"><button class="heal">Heal ❤️</button></a>
+            {% else %}
+                <a href="/restart"><button class="restart">Restart Game 🔄</button></a>
+            {% endif %}
         </div>
     </body>
     </html>
     """
 
-    return render_template_string(html, fact=fact, time=current_time)
+    return render_template_string(
+        html,
+        player_hp=session['player_hp'],
+        enemy_hp=session['enemy_hp'],
+        message=session['message']
+    )
+
+@app.route('/attack')
+def attack():
+    player_damage = random.randint(10, 25)
+    enemy_damage = random.randint(5, 20)
+
+    session['enemy_hp'] -= player_damage
+    session['player_hp'] -= enemy_damage
+
+    if session['enemy_hp'] <= 0:
+        session['message'] = f"You dealt {player_damage} damage and defeated the monster! 🎉"
+    elif session['player_hp'] <= 0:
+        session['message'] = f"You dealt {player_damage} damage, but the monster defeated you... 💀"
+    else:
+        session['message'] = f"You dealt {player_damage} damage. The monster hit back for {enemy_damage}!"
+
+    return redirect(url_for('home'))
+
+@app.route('/heal')
+def heal():
+    heal_amount = random.randint(10, 20)
+    enemy_damage = random.randint(5, 15)
+
+    session['player_hp'] += heal_amount
+    session['player_hp'] -= enemy_damage
+
+    session['message'] = f"You healed for {heal_amount}, but the monster attacked for {enemy_damage}!"
+
+    return redirect(url_for('home'))
+
+@app.route('/restart')
+def restart():
+    new_game()
+    return redirect(url_for('home'))
 
 if __name__ == '__main__':
     app.run(debug=True)
